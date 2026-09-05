@@ -45,3 +45,13 @@ export interface DailyBrief {
   digest: Digest | null;
   errors: string[];
 }
+
+/** One archived brief, as served by /api/daily-brief/history. */
+export interface SentBriefRecord extends DailyBrief {
+  id: string;
+  sentAt: string;
+  from: string;
+  to: string;
+  subject: string;
+  resendId: string;
+}

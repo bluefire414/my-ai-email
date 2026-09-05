@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { sendBriefAction } from "./actions";
@@ -11,6 +12,7 @@ type Status =
   | { state: "error"; message: string };
 
 export function SendMailButton() {
+  const router = useRouter();
   const [status, setStatus] = useState<Status>({ state: "idle" });
 
   async function send() {
@@ -24,6 +26,9 @@ export function SendMailButton() {
           ? { state: "sent", to: result.to, saveError: result.saveError }
           : { state: "error", message: result.error },
       );
+
+      // The page reads from the archive, so pull in the mail we just stored.
+      if (result.ok && result.saved) router.refresh();
     } catch (error) {
       setStatus({
         state: "error",
