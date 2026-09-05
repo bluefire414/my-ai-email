@@ -1,69 +1,211 @@
-import Image from "next/image";
+import { headers } from "next/headers";
 
-export default function Home() {
+import { RefreshButton } from "./refresh-button";
+import { SendMailButton } from "./send-mail-button";
+import type { DailyBrief } from "@/lib/daily-brief/types";
+
+export const dynamic = "force-dynamic";
+
+/** Call our own /api/daily-brief route — it needs an absolute URL on the server. */
+async function getBrief(): Promise<DailyBrief> {
+  const headerList = await headers();
+  const host = headerList.get("host") ?? "localhost:3000";
+  const protocol = headerList.get("x-forwarded-proto") ?? "http";
+
+  const res = await fetch(`${protocol}://${host}/api/daily-brief`, { cache: "no-store" });
+  return res.json();
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleString("zh-TW", {
+    timeZone: "Asia/Taipei",
+    hour12: false,
+  });
+}
+
+function Card({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <section className="rounded-2xl border border-black/10 bg-black/[.02] p-5 dark:border-white/15 dark:bg-white/[.03]">
+      <header className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-semibold tracking-wide text-black/60 dark:text-white/60">
+          {title}
+        </h2>
+        {subtitle && (
+          <span className="text-xs text-black/40 dark:text-white/40">{subtitle}</span>
+        )}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs text-black/50 dark:text-white/50">{label}</div>
+      <div className="text-lg font-medium tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+export default async function Home() {
+  const { date, generatedAt, weather, stock, news, digest, errors } = await getBrief();
+
+  return (
+    <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:py-14">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold sm:text-3xl">今日簡報</h1>
+          <p className="mt-1 text-sm text-black/50 dark:text-white/50">
+            {date}・更新於 {formatTime(generatedAt)}
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="flex items-start gap-2">
+          <RefreshButton />
+          <SendMailButton />
         </div>
-      </main>
-    </div>
+      </header>
+
+      <div className="flex flex-col gap-5">
+        {digest && (
+          <section className="rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 p-6 text-white">
+            <h2 className="text-xl font-bold sm:text-2xl">{digest.headline}</h2>
+            <p className="mt-3 text-sm leading-relaxed text-white/90">
+              {digest.encouragement}
+            </p>
+          </section>
+        )}
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Card
+            title="天氣"
+            subtitle={weather ? `${weather.location}・${weather.date}` : undefined}
+          >
+            {weather ? (
+              <>
+                <div className="mb-4 flex items-baseline gap-3">
+                  <span className="text-3xl font-semibold tabular-nums">
+                    {weather.currentTemp ?? "—"}°C
+                  </span>
+                  <span className="text-black/60 dark:text-white/60">
+                    {weather.description}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <Stat label="最高" value={`${weather.maxTemp ?? "—"}°`} />
+                  <Stat label="最低" value={`${weather.minTemp ?? "—"}°`} />
+                  <Stat
+                    label="降雨機率"
+                    value={`${weather.precipitationProbability ?? "—"}%`}
+                  />
+                </div>
+                {digest && (
+                  <p className="mt-4 text-sm text-black/70 dark:text-white/70">
+                    {digest.weatherNote}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-black/50 dark:text-white/50">今日無資料</p>
+            )}
+          </Card>
+
+          <Card title="股價" subtitle={stock ? `前一交易日 ${stock.tradeDate}` : undefined}>
+            {stock ? (
+              <>
+                <div className="mb-4 flex items-baseline gap-3">
+                  <span className="text-3xl font-semibold tabular-nums">{stock.close}</span>
+                  <span
+                    className={
+                      stock.change >= 0
+                        ? "font-medium text-red-600 dark:text-red-400"
+                        : "font-medium text-green-600 dark:text-green-400"
+                    }
+                  >
+                    {stock.change >= 0 ? "▲" : "▼"} {Math.abs(stock.change)}
+                  </span>
+                </div>
+                <div className="mb-3 text-sm text-black/60 dark:text-white/60">
+                  {stock.name}（{stock.symbol}）・{stock.currency}
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <Stat label="開盤" value={String(stock.open)} />
+                  <Stat label="最高" value={String(stock.high)} />
+                  <Stat label="最低" value={String(stock.low)} />
+                </div>
+                <div className="mt-3 text-xs text-black/50 dark:text-white/50">
+                  成交量 {stock.volume.toLocaleString("zh-TW")} 股
+                </div>
+                {digest && (
+                  <p className="mt-4 text-sm text-black/70 dark:text-white/70">
+                    {digest.stockNote}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-black/50 dark:text-white/50">今日無資料</p>
+            )}
+          </Card>
+        </div>
+
+        {digest && digest.newsHighlights.length > 0 && (
+          <Card title="AI 精選重點">
+            <ul className="flex flex-col gap-3">
+              {digest.newsHighlights.map((item, index) => (
+                <li key={index} className="border-l-2 border-indigo-500 pl-3">
+                  <div className="font-medium">{item.title}</div>
+                  <div className="text-sm text-black/60 dark:text-white/60">
+                    {item.takeaway}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        <Card title="科技新聞" subtitle={news.length ? `${news.length} 則` : undefined}>
+          {news.length ? (
+            <ul className="flex flex-col divide-y divide-black/10 dark:divide-white/10">
+              {news.map((item) => (
+                <li key={item.link} className="py-3 first:pt-0 last:pb-0">
+                  <a
+                    href={item.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium hover:underline"
+                  >
+                    {item.title}
+                  </a>
+                  <div className="mt-1 text-xs text-black/50 dark:text-white/50">
+                    {item.source}
+                    {item.publishedAt && `・${formatTime(item.publishedAt)}`}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-black/50 dark:text-white/50">今日無資料</p>
+          )}
+        </Card>
+
+        {errors.length > 0 && (
+          <Card title="抓取失敗的來源">
+            <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-amber-700 dark:text-amber-400">
+              {errors.map((message, index) => (
+                <li key={index}>{message}</li>
+              ))}
+            </ul>
+          </Card>
+        )}
+      </div>
+    </main>
   );
 }
